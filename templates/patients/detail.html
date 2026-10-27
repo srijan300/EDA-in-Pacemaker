@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block title %}{{ patient.full_name }}{% endblock %}
+{% block body_class %}theme-clinic{% endblock %}
+{% block content %}
+<div class="card wide" data-patient-id="{{ patient.pk }}">
+    <div class="top-bar">
+        <strong>{{ patient.full_name }} <span class="muted">#{{ patient.patient_id }}</span></strong>
+        <span class="top-bar-actions">
+            <a href="{% url 'patient_list' %}" class="links-inline">&larr; All patients</a>
+            <a href="{% url 'delete_patient' patient.pk %}" class="btn btn-small danger">Delete patient</a>
+        </span>
+    </div>
+
+    <div class="detail-grid">
+        <!-- Patient info -->
+        <section class="panel">
+            <h2>Patient details</h2>
+            <dl class="info">
+                <dt>Blood type</dt><dd>{{ patient.get_blood_type_display }}</dd>
+                <dt>Date of birth</dt><dd>{{ patient.date_of_birth|default:"&mdash;" }}</dd>
+                <dt>Gender</dt><dd>{{ patient.get_gender_display }}</dd>
+                <dt>Phone</dt><dd>{{ patient.phone|default:"&mdash;" }}</dd>
+                <dt>Email</dt><dd>{{ patient.email|default:"&mdash;" }}</dd>
+                <dt>Address</dt><dd>{{ patient.address|default:"&mdash;"|linebreaksbr }}</dd>
+                <dt>Emergency</dt><dd>{{ patient.emergency_contact_name|default:"&mdash;" }} {{ patient.emergency_contact_phone }}</dd>
+                <dt>Allergies</dt><dd>{{ patient.allergies|default:"&mdash;" }}</dd>
+                <dt>Device</dt><dd>{{ patient.pacemaker_serial|default:"&mdash;" }}</dd>
+                <dt>Implanted</dt><dd>{{ patient.implant_date|default:"&mdash;" }}</dd>
+            </dl>
+            <details>
+                <summary>Previous medical record</summary>
+                <p class="record">{{ patient.previous_medical_record|default:"None on file."|linebreaksbr }}</p>
+            </details>
+        </section>
+
+        <!-- Pacemaker control -->
+        <section class="panel">
+            <h2>Pacemaker voltage</h2>
+            <div class="voltage-readout">
+                <span class="big" id="current-voltage">{{ patient.current_voltage }}</span><span class="unit">V</span>
+                <div class="muted" id="pending-note" {% if not patient.voltage_pending %}hidden{% endif %}>
+                    target <span id="target-voltage">{{ patient.target_voltage }}</span> V pending push
+                </div>
+            </div>
+
+            <label class="slider-label">Alter voltage
+                <input type="range" id="voltage-slider"
+                       min="{{ min_voltage }}" max="{{ max_voltage }}" step="0.1"
+                       value="{{ patient.target_voltage }}">
+                <output id="slider-out">{{ patient.target_voltage }}</output> V
+            </label>
+
+            <div class="btn-row">
+                <button class="btn btn-small" id="set-btn">Set target</button>
+                <button class="btn btn-small" id="push-btn">Push now</button>
+                <button class="btn btn-small" id="pull-btn">Pull records now</button>
+                <button class="btn btn-small primary" id="sync-btn">Sync now</button>
+            </div>
+            <p class="muted" id="action-status"></p>
+
+            <div class="sync-meta muted">
+                <div>Last pushed: <span id="last-pushed">{{ patient.last_pushed_at|default:"never" }}</span></div>
+                <div>Last pulled: <span id="last-pulled">{{ patient.last_pulled_at|default:"never" }}</span></div>
+                <div>Auto-sync every {{ sync_interval }} min &middot; next in <span id="countdown">--:--</span></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Heart rate -->
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Heart rate records <span class="muted" id="hr-latest"></span></h2>
+            <div class="hr-stats">
+                <div class="hr-stat"><span class="hr-stat-val" id="hr-min">&mdash;</span><span class="hr-stat-lbl">min</span></div>
+                <div class="hr-stat"><span class="hr-stat-val" id="hr-avg">&mdash;</span><span class="hr-stat-lbl">avg</span></div>
+                <div class="hr-stat"><span class="hr-stat-val" id="hr-max">&mdash;</span><span class="hr-stat-lbl">max</span></div>
+                <div class="hr-stat accent"><span class="hr-stat-val" id="hr-cur">&mdash;</span><span class="hr-stat-lbl">latest bpm</span></div>
+            </div>
+        </div>
+
+        <div class="chart-wrap">
+            <canvas id="hr-chart"></canvas>
+            <div id="hr-tooltip" class="chart-tooltip" hidden></div>
+            <div id="hr-empty" class="chart-empty">No readings yet — pull records to populate.</div>
+        </div>
+
+        <table class="ptable" id="hr-table">
+            <thead><tr><th>Time</th><th>BPM</th><th>Voltage</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <!-- Voltage change log -->
+    <section class="panel">
+        <h2>Voltage change history</h2>
+        {% if voltage_changes %}
+        <table class="ptable">
+            <thead><tr><th>When</th><th>Change</th><th>Status</th></tr></thead>
+            <tbody>
+                {% for c in voltage_changes %}
+                <tr>
+                    <td>{{ c.created_at }}</td>
+                    <td>{{ c.previous_voltage }} &rarr; {{ c.new_voltage }} V</td>
+                    <td>{% if c.pushed %}<span class="pill ok">pushed</span>{% else %}<span class="pill pending">pending</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No changes yet.</p>
+        {% endif %}
+    </section>
+</div>
+
+<script>
+  const PID = {{ patient.pk }};
+  const SYNC_INTERVAL_MS = {{ sync_interval }} * 60 * 1000;
+  const urls = {
+    set:  `/patients/${PID}/set-voltage/`,
+    push: `/patients/${PID}/push/`,
+    pull: `/patients/${PID}/pull/`,
+    sync: `/patients/${PID}/sync/`,
+  };
+  const csrftoken = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1];
+  const $ = id => document.getElementById(id);
+
+  async function post(url, body) {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify(body || {}),
+    });
+    return resp.json();
+  }
+
+  function fmt(iso) {
+    if (!iso) return 'never';
+    const d = new Date(iso);
+    return d.toLocaleString();
+  }
+
+  let chartPoints = [];  // chronological order for the chart + hover
+
+  function render(state) {
+    $('current-voltage').textContent = state.current_voltage;
+    $('target-voltage').textContent = state.target_voltage;
+    $('pending-note').hidden = !state.voltage_pending;
+    $('last-pushed').textContent = fmt(state.last_pushed_at);
+    $('last-pulled').textContent = fmt(state.last_pulled_at);
+    $('hr-latest').textContent = state.latest_heart_rate ? `(latest ${state.latest_heart_rate} bpm)` : '';
+
+    // Table (most recent first, already ordered by the server)
+    const tbody = $('hr-table').querySelector('tbody');
+    tbody.innerHTML = '';
+    state.heart_rates.forEach(r => {
+      const cls = (r.bpm < 60 || r.bpm > 100) ? ' class="hr-out"' : '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${new Date(r.recorded_at).toLocaleString()}</td><td${cls}>${r.bpm}</td><td>${r.voltage ?? '—'}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    // Summary chips
+    const bpms = state.heart_rates.map(r => r.bpm);
+    if (bpms.length) {
+      $('hr-min').textContent = Math.min(...bpms);
+      $('hr-max').textContent = Math.max(...bpms);
+      $('hr-avg').textContent = Math.round(bpms.reduce((a,b)=>a+b,0)/bpms.length);
+      $('hr-cur').textContent = state.latest_heart_rate ?? '—';
+    } else {
+      ['hr-min','hr-max','hr-avg','hr-cur'].forEach(id => $(id).textContent = '—');
+    }
+
+    chartPoints = state.heart_rates.slice().reverse();  // oldest -> newest
+    $('hr-empty').hidden = chartPoints.length > 0;
+    drawChart();
+  }
+
+  // Geometry shared between draw + hover-hit-testing.
+  let chartGeom = null;
+
+  // Rich, dependency-free area chart with grid, axes and a normal band.
+  function drawChart() {
+    const c = $('hr-chart');
+    const wrap = c.parentElement;
+    const cssW = wrap.clientWidth || 600, cssH = 260;
+    const dpr = window.devicePixelRatio || 1;
+    c.width = cssW * dpr; c.height = cssH * dpr;
+    c.style.width = cssW + 'px'; c.style.height = cssH + 'px';
+    const ctx = c.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const pts = chartPoints;
+    if (!pts.length) { chartGeom = null; return; }
+
+    const padL = 34, padR = 12, padT = 14, padB = 26;
+    const plotW = cssW - padL - padR, plotH = cssH - padT - padB;
+
+    const bpms = pts.map(p => p.bpm);
+    let lo = Math.min(55, Math.min(...bpms) - 6);
+    let hi = Math.max(105, Math.max(...bpms) + 6);
+    const x = i => padL + (i / Math.max(1, pts.length - 1)) * plotW;
+    const y = v => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+
+    // Normal-range band (60-100 bpm)
+    ctx.fillStyle = 'rgba(195, 200, 252, 0.07)';
+    ctx.fillRect(padL, y(100), plotW, y(60) - y(100));
+
+    // Horizontal gridlines + y labels
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textBaseline = 'middle';
+    const ticks = [60, 80, 100];
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.fillStyle = 'rgba(161,161,170,0.9)';
+    ctx.lineWidth = 1;
+    ticks.forEach(t => {
+      if (t < lo || t > hi) return;
+      const yy = y(t);
+      ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(cssW - padR, yy); ctx.stroke();
+      ctx.textAlign = 'right';
+      ctx.fillText(t, padL - 6, yy);
+    });
+
+    // Gradient area fill under the line
+    const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+    grad.addColorStop(0, 'rgba(195, 200, 252, 0.35)');
+    grad.addColorStop(1, 'rgba(195, 200, 252, 0.02)');
+    ctx.beginPath();
+    ctx.moveTo(x(0), y(bpms[0]));
+    pts.forEach((p, i) => ctx.lineTo(x(i), y(p.bpm)));
+    ctx.lineTo(x(pts.length - 1), padT + plotH);
+    ctx.lineTo(x(0), padT + plotH);
+    ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+
+    // The line itself (smoothed with quadratic midpoints)
+    ctx.beginPath();
+    ctx.moveTo(x(0), y(bpms[0]));
+    for (let i = 1; i < pts.length; i++) {
+      const xm = (x(i - 1) + x(i)) / 2, ym = (y(bpms[i - 1]) + y(bpms[i])) / 2;
+      ctx.quadraticCurveTo(x(i - 1), y(bpms[i - 1]), xm, ym);
+    }
+    ctx.lineTo(x(pts.length - 1), y(bpms[pts.length - 1]));
+    ctx.strokeStyle = '#C3C8FC'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+    ctx.shadowColor = 'rgba(195,200,252,0.5)'; ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Points (highlight out-of-range readings)
+    pts.forEach((p, i) => {
+      const out = p.bpm < 60 || p.bpm > 100;
+      ctx.beginPath(); ctx.arc(x(i), y(p.bpm), out ? 3.5 : 2.5, 0, 7);
+      ctx.fillStyle = out ? '#F0778A' : '#C3C8FC'; ctx.fill();
+    });
+
+    // X-axis end labels (first / last time)
+    ctx.fillStyle = 'rgba(161,161,170,0.9)';
+    const t0 = new Date(pts[0].recorded_at), t1 = new Date(pts[pts.length - 1].recorded_at);
+    const hhmm = d => d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    ctx.textAlign = 'left';  ctx.fillText(hhmm(t0), padL, cssH - 10);
+    ctx.textAlign = 'right'; ctx.fillText(hhmm(t1), cssW - padR, cssH - 10);
+
+    chartGeom = { x, y, pts, padL, padR, plotW, cssH };
+  }
+
+  // Hover tooltip over the chart.
+  function initChartHover() {
+    const c = $('hr-chart'), tip = $('hr-tooltip');
+    c.addEventListener('mousemove', e => {
+      if (!chartGeom) return;
+      const rect = c.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const { x, y, pts } = chartGeom;
+      let bi = 0, bd = Infinity;
+      pts.forEach((p, i) => { const d = Math.abs(x(i) - mx); if (d < bd) { bd = d; bi = i; } });
+      const p = pts[bi];
+      tip.hidden = false;
+      tip.style.left = x(bi) + 'px';
+      tip.style.top = y(p.bpm) + 'px';
+      tip.innerHTML = `<strong>${p.bpm} bpm</strong><span>${new Date(p.recorded_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · ${p.voltage ?? '—'} V</span>`;
+    });
+    c.addEventListener('mouseleave', () => { tip.hidden = true; });
+  }
+  window.addEventListener('resize', drawChart);
+
+  async function action(url, body, label) {
+    const s = $('action-status'); s.textContent = `${label}...`;
+    try {
+      const data = await post(url, body);
+      if (data.ok) { render(data.state); s.textContent = `${label} done.`; }
+      else { s.textContent = data.error || 'Error'; }
+    } catch (e) { s.textContent = 'Network error.'; }
+  }
+
+  // Slider + buttons
+  const slider = $('voltage-slider'), out = $('slider-out');
+  slider.addEventListener('input', () => out.textContent = parseFloat(slider.value).toFixed(1));
+  $('set-btn').addEventListener('click', () => action(urls.set, {voltage: parseFloat(slider.value)}, 'Set target'));
+  $('push-btn').addEventListener('click', () => action(urls.push, {}, 'Push'));
+  $('pull-btn').addEventListener('click', () => action(urls.pull, {}, 'Pull'));
+  $('sync-btn').addEventListener('click', () => action(urls.sync, {}, 'Sync'));
+
+  // 30-minute automatic push+pull cycle with countdown.
+  let nextSync = Date.now() + SYNC_INTERVAL_MS;
+  setInterval(() => { nextSync = Date.now() + SYNC_INTERVAL_MS; action(urls.sync, {}, 'Auto-sync'); }, SYNC_INTERVAL_MS);
+  setInterval(() => {
+    let ms = Math.max(0, nextSync - Date.now());
+    const m = String(Math.floor(ms / 60000)).padStart(2, '0');
+    const sec = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+    $('countdown').textContent = `${m}:${sec}`;
+  }, 1000);
+
+  // Initial load: pull current records to populate the chart/table.
+  initChartHover();
+  action(urls.pull, {}, 'Loading');
+</script>
+{% endblock %}

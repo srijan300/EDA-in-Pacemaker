@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Add Patient{% endblock %}
+{% block body_class %}theme-clinic{% endblock %}
+{% block content %}
+<div class="card wide">
+    <div class="top-bar">
+        <strong>Register new patient</strong>
+        <a href="{% url 'patient_list' %}" class="links-inline">&larr; Back to patients</a>
+    </div>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <ul class="errorlist">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        <fieldset class="form-section">
+            <legend>Identity</legend>
+            <div class="grid2">
+                <div class="field">{{ form.patient_id.label_tag }}{{ form.patient_id }}{{ form.patient_id.errors }}</div>
+                <div class="field">{{ form.full_name.label_tag }}{{ form.full_name }}{{ form.full_name.errors }}</div>
+                <div class="field">{{ form.date_of_birth.label_tag }}{{ form.date_of_birth }}{{ form.date_of_birth.errors }}</div>
+                <div class="field">{{ form.gender.label_tag }}{{ form.gender }}{{ form.gender.errors }}</div>
+                <div class="field">{{ form.blood_type.label_tag }}{{ form.blood_type }}{{ form.blood_type.errors }}</div>
+            </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+            <legend>Contact</legend>
+            <div class="grid2">
+                <div class="field">{{ form.phone.label_tag }}{{ form.phone }}{{ form.phone.errors }}</div>
+                <div class="field">{{ form.email.label_tag }}{{ form.email }}{{ form.email.errors }}</div>
+                <div class="field span2">{{ form.address.label_tag }}{{ form.address }}{{ form.address.errors }}</div>
+                <div class="field">{{ form.emergency_contact_name.label_tag }}{{ form.emergency_contact_name }}{{ form.emergency_contact_name.errors }}</div>
+                <div class="field">{{ form.emergency_contact_phone.label_tag }}{{ form.emergency_contact_phone }}{{ form.emergency_contact_phone.errors }}</div>
+            </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+            <legend>Clinical</legend>
+            <div class="grid2">
+                <div class="field span2">{{ form.allergies.label_tag }}{{ form.allergies }}{{ form.allergies.errors }}</div>
+                <div class="field span2">{{ form.previous_medical_record.label_tag }}{{ form.previous_medical_record }}{{ form.previous_medical_record.errors }}</div>
+            </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+            <legend>Pacemaker</legend>
+            <div class="grid2">
+                <div class="field">{{ form.pacemaker_serial.label_tag }}{{ form.pacemaker_serial }}{{ form.pacemaker_serial.errors }}</div>
+                <div class="field">{{ form.implant_date.label_tag }}{{ form.implant_date }}{{ form.implant_date.errors }}</div>
+                <div class="field">{{ form.target_voltage.label_tag }}{{ form.target_voltage }}{{ form.target_voltage.errors }}</div>
+            </div>
+        </fieldset>
+
+        <button type="submit" class="btn">Register patient</button>
+    </form>
+</div>
+{% endblock %}

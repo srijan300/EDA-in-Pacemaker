@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "/home/varun/Desktop/mysite/patients/api.py", line 199, in login
+    user = authenticate(username=patient.user.username, password=password)
+  File "/home/varun/Desktop/mysite/venv/lib/python3.13/site-packages/django/views/decorators/debug.py", line 75, in sensitive_variables_wrapper
+    return func(*func_args, **func_kwargs)
+  File "/home/varun/Desktop/mysite/venv/lib/python3.13/site-packages/django/contrib/auth/__init__.py", line 114, in authenticate
+    user = backend.authenticate(request, **credentials)
+  File "/home/varun/Desktop/mysite/accounts/backends.py", line 13, in authenticate
+    user = UserModel.objects.get(email__iexact=username)
+  File "/home/varun/Desktop/mysite/venv/lib/python3.13/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/varun/Desktop/mysite/venv/lib/python3.13/site-packages/django/db/models/query.py", line 642, in get
+    raise self.model.MultipleObjectsReturned(
+    ...<5 lines>...
+    )
+django.contrib.auth.models.User.MultipleObjectsReturned: get() returned more than one User -- it returned 2!

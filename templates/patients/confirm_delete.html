@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ patient.full_name }}{% endblock %}
+{% block body_class %}theme-clinic{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="top-bar">
+        <strong>Delete patient</strong>
+        <a href="{% url 'patient_detail' patient.pk %}" class="links-inline">&larr; Cancel</a>
+    </div>
+
+    <div class="danger-panel">
+        <h1>Permanently delete {{ patient.full_name }}?</h1>
+        <p class="subtitle">
+            Patient <strong>{{ patient.full_name }}</strong>
+            (#{{ patient.patient_id }}) and their <strong>entire history</strong>
+            will be permanently deleted. <strong>This cannot be undone.</strong>
+        </p>
+
+        <p class="muted">The following will be permanently removed:</p>
+        <ul class="delete-list">
+            <li>All patient details and medical record on file</li>
+            <li>{{ heart_rate_count }} heart-rate reading{{ heart_rate_count|pluralize }}</li>
+            <li>{{ voltage_change_count }} voltage-change record{{ voltage_change_count|pluralize }}</li>
+            {% if has_login %}<li>The patient's mobile-app login account (they can no longer sign in)</li>{% endif %}
+        </ul>
+
+        <form method="post" action="{% url 'delete_patient' patient.pk %}" class="confirm-actions">
+            {% csrf_token %}
+            <a href="{% url 'patient_detail' patient.pk %}" class="btn btn-small">Cancel</a>
+            <button type="submit" class="btn btn-small danger">Yes, permanently delete</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{
+  "name": "pacemaker-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone simulated implant that the patient app connects to briefly each sync cycle, over its own local network port. No dependencies — built on Node's http module only.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

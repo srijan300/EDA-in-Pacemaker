@@ -1,0 +1,34 @@
+{
+  "name": "pacelink-patient",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --offline --port 8081",
+    "android": "expo start --offline --android --port 8081",
+    "ios": "expo start --offline --ios --port 8081",
+    "web": "expo start --offline --web --port 8081"
+  },
+  "dependencies": {
+    "expo": "~51.0.0",
+    "expo-router": "~3.5.0",
+    "expo-linking": "~6.3.0",
+    "expo-constants": "~16.0.0",
+    "expo-secure-store": "~13.0.0",
+    "expo-background-fetch": "~12.0.0",
+    "expo-task-manager": "~11.8.0",
+    "expo-device": "~6.0.0",
+    "@expo/vector-icons": "^14.1.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-ble-plx": "~3.2.0",
+    "react-native-safe-area-context": "4.10.5",
+    "react-native-screens": "3.31.1",
+    "react-native-web": "~0.19.10",
+    "@react-native-async-storage/async-storage": "1.23.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0"
+  },
+  "private": true
+}

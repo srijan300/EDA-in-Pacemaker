@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Invalid link{% endblock %}
+{% block content %}
+<div class="card center-text">
+    <div class="icon-wrap">⚠️</div>
+    <h1>Link expired or invalid</h1>
+    <p class="subtitle">
+        This activation link is no longer valid. Please sign up again or contact support.
+    </p>
+    <div class="links">
+        <a href="{% url 'signup' %}">Back to sign up</a>
+    </div>
+</div>
+{% endblock %}

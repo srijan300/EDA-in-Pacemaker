@@ -1,0 +1,49 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}My App{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <div class="page">
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="message {{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+    <script>
+        // Auto-add a Show/Hide toggle to every password field on the page.
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll('input[type="password"]').forEach(function (input) {
+                var wrap = document.createElement("div");
+                wrap.className = "pwd-wrap";
+                input.parentNode.insertBefore(wrap, input);
+                wrap.appendChild(input);
+
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "pwd-toggle";
+                btn.textContent = "Show";
+                btn.setAttribute("aria-label", "Show password");
+                btn.addEventListener("click", function () {
+                    var showing = input.type === "text";
+                    input.type = showing ? "password" : "text";
+                    btn.textContent = showing ? "Show" : "Hide";
+                    btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+                });
+                wrap.appendChild(btn);
+            });
+        });
+    </script>
+</body>
+</html>

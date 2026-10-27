@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Sign Up{% endblock %}
+{% block content %}
+<div class="card">
+    <h1>Create your account</h1>
+    <p class="subtitle">It only takes a minute</p>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <ul class="errorlist">
+                {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+            </ul>
+        {% endif %}
+        <div class="field">
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {{ form.username }}
+            {% for error in form.username.errors %}<div class="errorlist">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="field">
+            <label for="{{ form.email.id_for_label }}">Email</label>
+            {{ form.email }}
+            {% for error in form.email.errors %}<div class="errorlist">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="field">
+            <label for="{{ form.password1.id_for_label }}">Password</label>
+            {{ form.password1 }}
+            <span class="helptext">At least 8 characters.</span>
+            {% for error in form.password1.errors %}<div class="errorlist">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="field">
+            <label for="{{ form.password2.id_for_label }}">Confirm password</label>
+            {{ form.password2 }}
+            {% for error in form.password2.errors %}<div class="errorlist">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="field captcha">
+            <label for="{{ form.captcha.id_for_label }}">Verification</label>
+            {{ form.captcha }}
+            {% for error in form.captcha.errors %}<div class="errorlist">{{ error }}</div>{% endfor %}
+        </div>
+        <button type="submit" class="btn">Sign Up</button>
+    </form>
+    <div class="links">
+        Already have an account? <a href="{% url 'login' %}">Log in</a>
+    </div>
+</div>
+{% endblock %}

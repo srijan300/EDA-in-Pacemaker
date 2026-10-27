@@ -1,0 +1,7 @@
+Hi {{ user.username }},
+
+Thanks for signing up! Please verify your email address by clicking the link below:
+
+{{ activation_link }}
+
+If you didn't create this account, you can safely ignore this email.
